@@ -83,8 +83,8 @@ spec:
           mountPath: /home/wiremock/__files
         resources:
           requests:
-            memory: "1024Mi"
-            cpu: "1024m"
+            memory: "128Mi"
+            cpu: "128m"
           limits:
             memory: "1024Mi"
             cpu: "1024m"
