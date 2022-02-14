@@ -4,6 +4,7 @@ metadata:
   name: ${job_slaves_name}
   labels:
     jmeter_mode: slave
+    app: ${job_slaves_name}
 spec:
   ttlSecondsAfterFinished: 60
   backoffLimit: 0
@@ -12,6 +13,7 @@ spec:
     metadata:
       labels:
         jmeter_mode: slave
+        app: ${job_slaves_name}
       annotations:
         telegraf.influxdata.com/class: "app"
         telegraf.influxdata.com/inputs: |+
@@ -115,4 +117,4 @@ spec:
       name: stoptest
       targetPort: 4445
   selector:
-    jmeter_mode: slave
+    app: ${job_slaves_name}

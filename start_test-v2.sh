@@ -102,11 +102,11 @@ rm temp/jmeter-slave-temp.yml
 
 # Recreating each pods
 logit "INFO" "Recreating pod set"
-kubectl -n "${namespace}" delete -f jmeter-master-final.yaml -f jmeter-slave-final.yaml 2> /dev/null
+kubectl -n "${namespace}" delete -f temp 2> /dev/null
 kubectl -n "${namespace}" apply -f temp
 kubectl -n "${namespace}" patch job ${job_slaves_name} -p '{"spec":{"parallelism":0}}'
 logit "INFO" "Waiting for all slaves pods to be terminated before recreating the pod set"
-while [[ $(kubectl -n ${namespace} get pods -l jmeter_mode=slave -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "" ]]; do echo "$(kubectl -n ${namespace} get pods -l jmeter_mode=slave )" && sleep 1; done
+while [[ $(kubectl -n ${namespace} get pods -l app=${job_slaves_name} -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "" ]]; do echo "$(kubectl -n ${namespace} get pods -l app=${job_slaves_name} )" && sleep 1; done
 
 # Starting jmeter slave pod 
 if [ -z "${nb_injectors}" ]; then
@@ -123,13 +123,13 @@ else
         validation_string=${validation_string}"True"
     done
 
-    while [[ $(kubectl -n ${namespace} get pods -l jmeter_mode=slave -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}' | sed 's/ //g') != "${validation_string}" ]]; do echo "$(kubectl -n ${namespace} get pods -l jmeter_mode=slave )" && sleep 1; done
+    while [[ $(kubectl -n ${namespace} get pods -l app=${job_slaves_name} -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}' | sed 's/ //g') != "${validation_string}" ]]; do echo "$(kubectl -n ${namespace} get pods -l app=${job_slaves_name} )" && sleep 1; done
     logit "INFO" "Finish scaling the number of pods."
 fi
 
 #Get Master pod details
 logit "INFO" "Waiting for master pod to be available"
-while [[ $(kubectl -n ${namespace} get pods -l jmeter_mode=master -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]; do echo "$(kubectl -n ${namespace} get pods -l jmeter_mode=master )" && sleep 1; done
+while [[ $(kubectl -n ${namespace} get pods -l app=${job_master_name} -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]; do echo "$(kubectl -n ${namespace} get pods -l app=${job_master_name} )" && sleep 1; done
 
 master_pod=$(kubectl get pod -n "${namespace}" | grep ${job_master_name}| awk '{print $1}')
 
@@ -238,9 +238,6 @@ done
 
 
 slave_list=$(kubectl -n ${namespace} describe endpoints ${job_slaves_name} | grep ' Addresses' | awk -F" " '{print $2}')
-
-echo "kubectl -n ${namespace} describe endpoints ${job_slaves_name} | grep ' Addresses' | awk -F" " '{print $2}'"
-echo "***********************namespace:${namespace} slave_list:${slave_list}"
 
 logit "INFO" "JMeter slave list : ${slave_list}"
 slave_array=($(echo ${slave_list} | sed 's/,/ /g'))

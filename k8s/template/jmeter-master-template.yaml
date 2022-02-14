@@ -4,6 +4,7 @@ metadata:
   name: ${job_master_name}
   labels:
     jmeter_mode: master
+    app: ${job_master_name}
 spec:
   completions: 1
   backoffLimit: 0
@@ -11,6 +12,7 @@ spec:
     metadata:
       labels:
         jmeter_mode: master
+        app: ${job_master_name}
       annotations:
         telegraf.influxdata.com/class: "app"
         telegraf.influxdata.com/inputs: |+
