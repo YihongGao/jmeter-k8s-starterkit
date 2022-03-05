@@ -30,7 +30,7 @@ usage()
   logit "INFO" "-j <filename.jmx>"
   logit "INFO" "-n <namespace>"
   logit "INFO" "-c flag to split and copy csv if you use csv in your test"
-  logit "INFO" "-m flag to copy fragmented jmx present in scenario/project/module if you use include controller and external test fragment"
+  logit "INFO" "-m flag to copy fragmented jmx present in ${artifact_path}/project/module if you use include controller and external test fragment"
   logit "INFO" "-i <injectorNumber> to scale slaves pods to the desired number of JMeter injectors"
   logit "INFO" "-r flag to enable report generation at the end of the test"
   exit 1
@@ -44,8 +44,6 @@ fi
 job_name=$1; shift
 
 ### Parsing the arguments ###
-#while getopts 'i:mj:hcrn:' option;
-#while getopts 'namespace:c:m:r:jmx:slave-number:h' option;
 for argument in "$@"
 do
     if [[ $argument != -* ]]; then
@@ -85,7 +83,7 @@ do
     shift
 done
 
-logit "INFO" "************ Parameter *******************"
+logit "INFO" "************ Arguments *******************"
 logit "INFO" "namespace: ${namespace}"
 logit "INFO" "artifact-path: ${artifact_path}"
 logit "INFO" "slave-number: ${nb_injectors}"
@@ -135,9 +133,8 @@ if [ ! -f "${jmx_filepath}" ]; then
     usage
 fi
 
-jmx_dir="${jmx%%.*}"
-
 logit "INFO" "************ JMX Info *******************"
+logit "INFO" "jmx_dir: ${jmx_dir}"
 logit "INFO" "jmx_filename: ${jmx_filename}"
 logit "INFO" "artifact_path: ${artifact_path}"
 logit "INFO" "*******************************"
@@ -205,7 +202,7 @@ jmeter_directory="/opt/jmeter/apache-jmeter/bin"
 # Copying module and config to pods
 if [ -n "${module}" ]; then
     logit "INFO" "Using modules (test fragments), uploading them in the pods"
-    module_dir="scenario/module"
+    module_dir="${artifact_path}/module"
 
     logit "INFO" "Number of slaves is ${slave_num}"
     logit "INFO" "Processing directory.. ${module_dir}"
@@ -233,7 +230,7 @@ do
     logit "INFO" "Copying ${jmx_filepath} to ${slave_pods[$i]}"
     kubectl cp -c jmslave "${jmx_filepath}" -n "${namespace}" "${slave_pods[$i]}:/opt/jmeter/apache-jmeter/bin/" &
 done # for i in "${slave_pods[@]}"
-logit "INFO" "Finish copying scenario in slaves pod"
+logit "INFO" "Finish copying ${artifact_path} in slaves pod"
 
 logit "INFO" "Copying ${jmx_filepath} into ${master_pod}"
 kubectl cp -c jmmaster "${jmx_filepath}" -n "${namespace}" "${master_pod}:/opt/jmeter/apache-jmeter/bin/" &
@@ -249,12 +246,12 @@ logit "INFO" "Installing needed plugins on slave pods"
     echo "trap 'kill -10 1' EXIT INT TERM"
     echo "java -jar /opt/jmeter/apache-jmeter/lib/jolokia-java-agent.jar start JMeter >> jmeter-injector.out 2>> jmeter-injector.err"
     echo "wait"
-} > "scenario/${jmx_dir}/jmeter_injector_start.sh"
+} > "${artifact_path}/jmeter_injector_start.sh"
 
 # Copying dataset on slave pods
 if [ -n "${csv}" ]; then
     logit "INFO" "Splitting and uploading csv to pods"
-    dataset_dir=./scenario/dataset
+    dataset_dir="${artifact_path}/dataset"
 
     for csvfilefull in $(ls ${dataset_dir}/*.csv)
         do
@@ -292,7 +289,7 @@ wait
 for ((i=0; i<end; i++))
 do
         logit "INFO" "Starting jmeter server on ${slave_pods[$i]} in parallel"
-        kubectl cp -c jmslave "scenario/${jmx_dir}/jmeter_injector_start.sh" -n "${namespace}" "${slave_pods[$i]}:/opt/jmeter/jmeter_injector_start"
+        kubectl cp -c jmslave "${artifact_path}/jmeter_injector_start.sh" -n "${namespace}" "${slave_pods[$i]}:/opt/jmeter/jmeter_injector_start"
         kubectl exec -c jmslave -i -n "${namespace}" "${slave_pods[$i]}" -- /bin/bash "/opt/jmeter/jmeter_injector_start" &  
 done
 
@@ -304,7 +301,7 @@ slave_array=($(echo ${slave_list} | sed 's/,/ /g'))
 
 
 ## Starting Jmeter load test
-source "scenario/${jmx_dir}/.env"
+source "${artifact_path}/.env"
 
 param_host="-Ghost=${host} -Gport=${port} -Gprotocol=${protocol}"
 param_test="-GtimeoutConnect=${timeoutConnect} -GtimeoutResponse=${timeoutResponse}"
@@ -315,7 +312,7 @@ if [ -n "${enable_report}" ]; then
     report_command_line="--reportatendofloadtests --reportoutputfolder /report/report-${jmx_filename}-$(date +"%F_%H%M%S")"
 fi
 
-echo "slave_array=(${slave_array[@]}); index=${slave_num} && while [ \${index} -gt 0 ]; do for slave in \${slave_array[@]}; do if echo 'test open port' 2>/dev/null > /dev/tcp/\${slave}/1099; then echo \${slave}' ready' && slave_array=(\${slave_array[@]/\${slave}/}); index=\$((index-1)); else echo \${slave}' not ready'; fi; done; echo 'Waiting for slave readiness'; sleep 2; done" > "scenario/${jmx_dir}/load_test.sh"
+echo "slave_array=(${slave_array[@]}); index=${slave_num} && while [ \${index} -gt 0 ]; do for slave in \${slave_array[@]}; do if echo 'test open port' 2>/dev/null > /dev/tcp/\${slave}/1099; then echo \${slave}' ready' && slave_array=(\${slave_array[@]/\${slave}/}); index=\$((index-1)); else echo \${slave}' not ready'; fi; done; echo 'Waiting for slave readiness'; sleep 2; done" > "${artifact_path}/load_test.sh"
 
 { 
     echo "echo \"Installing needed plugins for master\""
@@ -325,10 +322,10 @@ echo "slave_array=(${slave_array[@]}); index=${slave_num} && while [ \${index} -
     echo "trap 'kill -10 1' EXIT INT TERM"
     echo "java -jar /opt/jmeter/apache-jmeter/lib/jolokia-java-agent.jar start JMeter >> jmeter-master.out 2>> jmeter-master.err"
     echo "wait"
-} >> "scenario/${jmx_dir}/load_test.sh"
+} >> "${artifact_path}/load_test.sh"
 
-logit "INFO" "Copying scenario/${jmx_dir}/load_test.sh into  ${master_pod}:/opt/jmeter/load_test"
-kubectl cp -c jmmaster "scenario/${jmx_dir}/load_test.sh" -n "${namespace}" "${master_pod}:/opt/jmeter/load_test"
+logit "INFO" "Copying ${artifact_path}/load_test.sh into  ${master_pod}:/opt/jmeter/load_test"
+kubectl cp -c jmmaster "${artifact_path}/load_test.sh" -n "${namespace}" "${master_pod}:/opt/jmeter/load_test"
 
 logit "INFO" "Starting the performance test"
 kubectl exec -c jmmaster -i -n "${namespace}" "${master_pod}" -- /bin/bash "/opt/jmeter/load_test"
