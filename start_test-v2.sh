@@ -41,6 +41,7 @@ if [ "$#" -eq 0 ]
     usage
 fi
 
+shell_root_path="$(dirname $0)"
 job_name=$1; shift
 
 ### Parsing the arguments ###
@@ -134,7 +135,6 @@ if [ ! -f "${jmx_filepath}" ]; then
 fi
 
 logit "INFO" "************ JMX Info *******************"
-logit "INFO" "jmx_dir: ${jmx_dir}"
 logit "INFO" "jmx_filename: ${jmx_filename}"
 logit "INFO" "artifact_path: ${artifact_path}"
 logit "INFO" "*******************************"
@@ -147,16 +147,18 @@ fi
 job_master_name=${job_name}-master
 job_slaves_name=${job_name}-slaves
 
+mkdir temp
+
 # Create master yaml from template
 ( echo "cat <<EOF >temp/jmeter-master-final.yaml";
-  cat k8s/template/jmeter-master-template.yaml;  
+  cat ${shell_root_path}/k8s/template/jmeter-master-template.yaml;  
 ) >temp/jmeter-master-temp.yml
 . temp/jmeter-master-temp.yml
 rm temp/jmeter-master-temp.yml
 
 # Create slave yaml from template
 ( echo "cat <<EOF >temp/jmeter-slave-final.yaml";
-  cat k8s/template/jmeter-slave-template.yaml;
+  cat ${shell_root_path}/k8s/template/jmeter-slave-template.yaml;
 ) >temp/jmeter-slave-temp.yml
 . temp/jmeter-slave-temp.yml
 rm temp/jmeter-slave-temp.yml
