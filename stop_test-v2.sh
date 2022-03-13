@@ -36,22 +36,36 @@ usage()
   exit 1
 }
 
-job_name=$1; shift
-
-### Parsing the arguments ###
-while getopts 'hn:' option;
-    do
-      case $option in
-        n	)	namespace=${OPTARG}   ;;
-        h   )   usage ;;
-        ?   )   usage ;;
-      esac
-done
-
 if [ "$#" -eq 0 ]
   then
     usage
 fi
+
+shell_root_path="$(dirname $0)"
+job_name=$1; shift
+
+### Parsing the arguments ###
+for argument in "$@"
+do
+    if [[ $argument != -* ]]; then
+        continue
+    fi
+    case $argument in
+        -n|--namespace	)	 
+            shift 
+            namespace="$1"
+            ;;
+        -h|--help   )   
+            usage ;; 
+        ?   )   
+            usage ;;
+    esac
+    shift
+done
+
+logit "INFO" "************ Arguments *******************"
+logit "INFO" "namespace: ${namespace}"
+logit "INFO" "*******************************"
 
 ### CHECKING VARS ###
 if [ -z "${job_name}" ] || [[ "${job_name}" == -* ]] ; then
@@ -65,6 +79,9 @@ if [ -z "${namespace}" ]; then
     namespace=$(awk '{print $NF}' "${PWD}/namespace_export")
 fi
 
-master_pod=$(kubectl get pod -n "${namespace}" | grep jmeter-master | awk '{print $1}')
+job_master_name=${job_name}-master
+job_slaves_name=${job_name}-slaves
 
-kubectl -n "${namespace}" exec -c jmmaster -ti "${master_pod}" -- bash /opt/jmeter/apache-jmeter/bin/stoptest.sh
+kubectl delete job "${job_master_name}" -n "${namespace}" 
+
+kubectl delete job "${job_slaves_name}" -n "${namespace}" 

@@ -4,6 +4,7 @@ metadata:
   name: ${job_slaves_name}
   labels:
     jmeter_mode: slave
+    master_job: ${job_master_name}
     app: ${job_slaves_name}
 spec:
   ttlSecondsAfterFinished: 60
@@ -13,6 +14,7 @@ spec:
     metadata:
       labels:
         jmeter_mode: slave
+        master_job: ${job_master_name}        
         app: ${job_slaves_name}
       annotations:
         telegraf.influxdata.com/class: "app"
